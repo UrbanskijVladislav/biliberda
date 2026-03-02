@@ -1,0 +1,1292 @@
+// AI ASSISTANT - CLEAN VERSION
+class AIAssistantUI {
+    constructor() {
+        this.messageCount = 0;
+        this.moodChanges = 0;
+        this.currentMood = 'happy';
+        
+        this.initializeElements();
+        this.bindEvents();
+        this.updateStats();
+        this.checkGroqStatus();
+        this.checkImageStatus();
+    }
+    
+    initializeElements() {
+        this.chatMessages = document.getElementById('chat-messages');
+        this.userInput = document.getElementById('user-input');
+        this.sendBtn = document.getElementById('send-btn');
+        this.changeMoodBtn = document.getElementById('change-mood-btn');
+        this.moodEmoji = document.getElementById('mood-emoji');
+        this.moodText = document.getElementById('mood-text');
+        this.sidebarMoodEmoji = document.getElementById('sidebar-mood-emoji');
+        this.sidebarMoodText = document.getElementById('sidebar-mood-text');
+        this.charCount = document.getElementById('char-count');
+        this.messageCountEl = document.getElementById('message-count');
+        this.moodChangesEl = document.getElementById('mood-changes');
+        this.groqStatusEl = document.getElementById('groq-status');
+        this.imageStatusEl = document.getElementById('image-status');
+        this.loading = document.getElementById('loading');
+        this.quickBtns = document.querySelectorAll('.quick-btn');
+        this.exportBtn = document.getElementById('export-btn');
+        
+        // Export button
+        if (this.exportBtn) {
+            this.exportBtn.addEventListener('click', () => this.exportChat());
+        }
+        
+        // Quick actions
+        this.quickBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const message = btn.getAttribute('data-message');
+                const action = btn.getAttribute('data-action');
+                
+                if (action === 'show_memory') {
+                    this.showMemory();
+                } else if (action === 'clear_memory') {
+                    this.clearMemory();
+                } else if (action === 'clear_chat') {
+                    this.clearChat();
+                } else if (action === 'play_game') {
+                    this.showGameMenu();
+                } else if (message) {
+                    this.userInput.value = message;
+                    this.sendMessage();
+                }
+            });
+        });
+    }
+    
+    bindEvents() {
+        this.sendBtn.addEventListener('click', () => this.sendMessage());
+        this.userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.sendMessage();
+            }
+        });
+        
+        this.changeMoodBtn.addEventListener('click', () => this.changeMood());
+        this.userInput.addEventListener('input', () => this.updateCharCount());
+        this.userInput.focus();
+    }
+
+    async sendMessage() {
+        const message = this.userInput.value.trim();
+        if (!message) return;
+        
+        this.addMessage(message, 'user');
+        this.userInput.value = '';
+        this.updateCharCount();
+        
+        this.showLoading();
+        
+        try {
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message })
+            });
+            
+            const data = await response.json();
+            
+            setTimeout(() => {
+                this.hideLoading();
+                this.addMessage(data.response, 'assistant');
+                this.updateMoodDisplay(data.mood, data.emoji);
+                
+                if (data.type === 'image' && data.image_url) {
+                    this.addImageMessage(data.image_url, data.image_prompt);
+                }
+            }, 500);
+            
+        } catch (error) {
+            this.hideLoading();
+            this.addMessage('Вибач, сталася помилка. Спробуй ще раз!', 'assistant');
+            console.error('Error:', error);
+        }
+        
+        this.messageCount++;
+        this.updateStats();
+    }
+    
+    async changeMood() {
+        this.showLoading();
+        
+        try {
+            const response = await fetch('/mood', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            const data = await response.json();
+            
+            setTimeout(() => {
+                this.hideLoading();
+                this.updateMoodDisplay(data.mood, data.emoji);
+                this.addMessage(data.message, 'assistant');
+                this.moodChanges++;
+                this.updateStats();
+            }, 500);
+            
+        } catch (error) {
+            this.hideLoading();
+            console.error('Error changing mood:', error);
+        }
+    }
+    
+    addMessage(content, sender) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${sender}-message`;
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.textContent = sender === 'user' ? '👤' : '🤖';
+        
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
+        messageContent.innerHTML = this.formatMessage(content);
+        
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(messageContent);
+        
+        this.chatMessages.appendChild(messageDiv);
+        this.scrollToBottom();
+    }
+    
+    formatMessage(content) {
+        return content
+            .replace(/\n/g, '<br>')
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\*(.*?)\*/g, '<em>$1</em>');
+    }
+    
+    addImageMessage(imageUrl, prompt) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message assistant-message';
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.textContent = '🎨';
+        
+        const messageContent = document.createElement('div');
+        messageContent.className = 'message-content';
+        
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.alt = 'Згенероване зображення';
+        
+        const promptText = document.createElement('small');
+        promptText.textContent = `Промпт: ${prompt}`;
+        promptText.style.cssText = 'color: rgba(0, 255, 65, 0.7); font-style: italic; display: block; margin-top: 0.5rem;';
+        
+        img.addEventListener('click', () => {
+            window.open(imageUrl, '_blank');
+        });
+        
+        messageContent.appendChild(img);
+        messageContent.appendChild(promptText);
+        
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(messageContent);
+        
+        this.chatMessages.appendChild(messageDiv);
+        this.scrollToBottom();
+    }
+    
+    updateMoodDisplay(mood, emoji) {
+        const moodNames = {
+            'happy': 'Щасливий',
+            'curious': 'Цікавий',
+            'wise': 'Мудрий',
+            'playful': 'Грайливий',
+            'sleepy': 'Сонний',
+            'excited': 'Збуджений',
+            'mysterious': 'Таємничий'
+        };
+        
+        this.currentMood = mood;
+        const moodName = moodNames[mood] || mood;
+        
+        this.moodEmoji.textContent = emoji;
+        this.moodText.textContent = moodName;
+        
+        if (this.sidebarMoodEmoji) {
+            this.sidebarMoodEmoji.textContent = emoji;
+        }
+        if (this.sidebarMoodText) {
+            this.sidebarMoodText.textContent = moodName;
+        }
+    }
+    
+    updateCharCount() {
+        const count = this.userInput.value.length;
+        this.charCount.textContent = `${count}/500`;
+    }
+    
+    updateStats() {
+        if (this.messageCountEl) {
+            this.messageCountEl.textContent = this.messageCount;
+        }
+        if (this.moodChangesEl) {
+            this.moodChangesEl.textContent = this.moodChanges;
+        }
+    }
+    
+    showLoading() {
+        this.loading.classList.remove('hidden');
+    }
+    
+    hideLoading() {
+        this.loading.classList.add('hidden');
+    }
+    
+    scrollToBottom() {
+        this.chatMessages.scrollTop = this.chatMessages.scrollHeight;
+    }
+
+    async showMemory() {
+        this.showLoading();
+        
+        try {
+            const response = await fetch('/memory', {
+                method: 'GET'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                this.hideLoading();
+                this.addMessage(`🧠 Ось що я знаю про тебе:\n\n${data.user_info}`, 'assistant');
+            } else {
+                this.hideLoading();
+                this.addMessage('Помилка отримання пам\'яті', 'assistant');
+            }
+        } catch (error) {
+            this.hideLoading();
+            this.addMessage('Помилка з\'єднання', 'assistant');
+        }
+    }
+    
+    async clearMemory() {
+        if (confirm('Ти впевнений, що хочеш очистити мою пам\'ять про тебе?')) {
+            this.showLoading();
+            
+            try {
+                const response = await fetch('/memory', {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    this.hideLoading();
+                    this.addMessage(data.response, 'assistant');
+                } else {
+                    this.hideLoading();
+                    this.addMessage('Помилка очищення пам\'яті', 'assistant');
+                }
+            } catch (error) {
+                this.hideLoading();
+                this.addMessage('Помилка з\'єднання', 'assistant');
+            }
+        }
+    }
+    
+    clearChat() {
+        if (confirm('Очистити всю історію чату? (Пам\'ять про тебе залишиться)')) {
+            this.chatMessages.innerHTML = '';
+            this.addMessage('✨ Чат очищено! Готовий до нових розмов! 🚀', 'assistant');
+            this.messageCount = 0;
+            this.updateStats();
+        }
+    }
+    
+    exportChat() {
+        const messages = this.chatMessages.querySelectorAll('.message');
+        let chatText = '=== AI ASSISTANT - CHAT EXPORT ===\n\n';
+        chatText += `Дата: ${new Date().toLocaleString('uk-UA')}\n`;
+        chatText += `Повідомлень: ${messages.length}\n`;
+        chatText += `Настрій: ${this.currentMood}\n\n`;
+        chatText += '='.repeat(50) + '\n\n';
+        
+        messages.forEach((msg, index) => {
+            const isUser = msg.classList.contains('user-message');
+            const content = msg.querySelector('.message-content').textContent;
+            const sender = isUser ? 'ТИ' : 'АСИСТЕНТ';
+            
+            chatText += `[${index + 1}] ${sender}:\n${content}\n\n`;
+        });
+        
+        chatText += '='.repeat(50) + '\n';
+        chatText += 'Експортовано з AI Assistant\n';
+        
+        const blob = new Blob([chatText], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat_${new Date().getTime()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.addMessage('📥 Чат експортовано! Файл завантажено! 💾', 'assistant');
+    }
+    
+    async checkGroqStatus() {
+        try {
+            const response = await fetch('/groq-status');
+            if (response.ok) {
+                const status = await response.json();
+                this.updateGroqStatus(status);
+            }
+        } catch (error) {
+            console.error('Помилка перевірки GROQ статусу:', error);
+            if (this.groqStatusEl) {
+                this.groqStatusEl.textContent = '❌';
+            }
+        }
+    }
+    
+    updateGroqStatus(status) {
+        if (!this.groqStatusEl) return;
+        
+        if (status.enabled && status.available) {
+            this.groqStatusEl.textContent = '🤖';
+            this.groqStatusEl.title = `GROQ активний (${status.model})`;
+        } else if (status.enabled && !status.available) {
+            this.groqStatusEl.textContent = '⚠️';
+            this.groqStatusEl.title = 'GROQ увімкнений, але недоступний';
+        } else {
+            this.groqStatusEl.textContent = '🔒';
+            this.groqStatusEl.title = 'GROQ вимкнений';
+        }
+    }
+    
+    async checkImageStatus() {
+        try {
+            const response = await fetch('/image-status');
+            if (response.ok) {
+                const status = await response.json();
+                this.updateImageStatus(status);
+            }
+        } catch (error) {
+            console.error('Помилка перевірки статусу зображень:', error);
+            if (this.imageStatusEl) {
+                this.imageStatusEl.textContent = '❌';
+            }
+        }
+    }
+    
+    updateImageStatus(status) {
+        if (!this.imageStatusEl) return;
+        
+        if (status.available && status.enabled) {
+            this.imageStatusEl.textContent = '🎨';
+            this.imageStatusEl.title = 'Генерація зображень активна';
+        } else if (status.enabled && !status.api_configured) {
+            this.imageStatusEl.textContent = '🔑';
+            this.imageStatusEl.title = 'Потрібен API ключ';
+        } else {
+            this.imageStatusEl.textContent = '🔒';
+            this.imageStatusEl.title = 'Генерація зображень вимкнена';
+        }
+    }
+
+    
+    // === ІГРИ ===
+    
+    showToast(message, emoji = '✨') {
+        const toast = document.createElement('div');
+        toast.className = 'game-toast';
+        toast.innerHTML = `<span>${emoji}</span> ${message}`;
+        document.body.appendChild(toast);
+        
+        setTimeout(() => toast.classList.add('show'), 10);
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 300);
+        }, 2000);
+    }
+    
+    showGameMenu() {
+        console.log('showGameMenu called');
+        const menuDiv = document.createElement('div');
+        menuDiv.className = 'message assistant-message';
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'message-avatar';
+        avatar.textContent = '🎮';
+        
+        const content = document.createElement('div');
+        content.className = 'message-content';
+        content.innerHTML = `
+            <p><strong>🎮 Оберіть гру:</strong></p>
+            <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                <button class="game-choice-btn" data-game="chess">♟️ Шахи</button>
+                <button class="game-choice-btn" data-game="fool">🃏 Дурень</button>
+            </div>
+        `;
+        
+        menuDiv.appendChild(avatar);
+        menuDiv.appendChild(content);
+        this.chatMessages.appendChild(menuDiv);
+        this.scrollToBottom();
+        
+        // Обробники для кнопок
+        content.querySelectorAll('.game-choice-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                console.log('Game choice button clicked:', btn.dataset.game);
+                const game = btn.dataset.game;
+                if (game === 'chess') {
+                    this.startChess();
+                } else if (game === 'fool') {
+                    this.startFool();
+                }
+            });
+        });
+    }
+    
+    startChess() {
+        console.log('startChess called');
+        // Показуємо діалог вибору складності
+        this.showDifficultyDialog();
+    }
+    
+    showDifficultyDialog() {
+        console.log('showDifficultyDialog called');
+        const modal = document.createElement('div');
+        modal.className = 'difficulty-modal';
+        modal.innerHTML = `
+            <div class="difficulty-content">
+                <h2>♟️ Оберіть рівень складності</h2>
+                <p>Виберіть силу суперника:</p>
+                <div class="difficulty-buttons">
+                    <button class="difficulty-btn beginner" data-elo="200">
+                        <span class="elo-badge">200 ELO</span>
+                        <span class="difficulty-name">Новачок</span>
+                        <span class="difficulty-desc">Випадкові ходи</span>
+                    </button>
+                    <button class="difficulty-btn easy" data-elo="600">
+                        <span class="elo-badge">600 ELO</span>
+                        <span class="difficulty-name">Початківець</span>
+                        <span class="difficulty-desc">Базова стратегія</span>
+                    </button>
+                    <button class="difficulty-btn medium" data-elo="1000">
+                        <span class="elo-badge">1000 ELO</span>
+                        <span class="difficulty-name">Середній</span>
+                        <span class="difficulty-desc">Хороша гра</span>
+                    </button>
+                    <button class="difficulty-btn hard" data-elo="2500">
+                        <span class="elo-badge">2500 ELO</span>
+                        <span class="difficulty-name">Гросмейстер</span>
+                        <span class="difficulty-desc">Чемпіон світу</span>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+        
+        modal.querySelectorAll('.difficulty-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                console.log('Difficulty button clicked:', btn.dataset.elo);
+                const elo = parseInt(btn.dataset.elo);
+                modal.classList.remove('show');
+                setTimeout(() => {
+                    modal.remove();
+                    this.startChessWithDifficulty(elo);
+                }, 300);
+            });
+        });
+    }
+    
+    startChessWithDifficulty(difficulty) {
+    startChessWithDifficulty(difficulty) {
+        // Створюємо повноекранну гру
+        const fullscreen = document.createElement('div');
+        fullscreen.className = 'game-fullscreen';
+        fullscreen.id = 'game-fullscreen';
+        
+        const difficultyNames = {
+            200: 'Новачок (200 ELO)',
+            600: 'Початківець (600 ELO)',
+            1000: 'Середній (1000 ELO)',
+            2500: 'Гросмейстер (2500 ELO)'
+        };
+        
+        fullscreen.innerHTML = `
+            <div class="game-fullscreen-content">
+                <div class="game-header">
+                    <h2>♟️ Шахи</h2>
+                    <button class="game-close-btn" id="chess-close">✕</button>
+                </div>
+                <div class="chess-info" id="chess-info">
+                    <p>🎯 Складність: <strong>${difficultyNames[difficulty]}</strong></p>
+                    <p>Визначаємо кольори...</p>
+                </div>
+                <div class="chess-board" id="chess-board"></div>
+                <div class="game-controls">
+                    <button class="game-btn" id="chess-ai-move">🤖 Хід AI</button>
+                    <button class="game-btn" id="chess-reset">🔄 Нова гра</button>
+                </div>
+                <p class="game-hint">Клікай на фігуру, потім на клітинку куди хочеш піти</p>
+            </div>
+        `;
+        
+        document.body.appendChild(fullscreen);
+        setTimeout(() => fullscreen.classList.add('show'), 10);
+        
+        this.chessGame = new ChessGame(difficulty);
+        this.renderChessBoard();
+        
+        // Показуємо інформацію про кольори
+        const infoEl = document.getElementById('chess-info');
+        if (infoEl) {
+            const playerColorName = this.chessGame.playerColor === 'white' ? 'білими' : 'чорними';
+            const aiColorName = this.chessGame.aiColor === 'white' ? 'білими' : 'чорними';
+            infoEl.innerHTML = `
+                <p>🎯 Складність: <strong>${difficultyNames[difficulty]}</strong></p>
+                <p>🎲 Ти граєш <strong>${playerColorName}</strong> фігурами</p>
+                <p>🤖 AI грає <strong>${aiColorName}</strong> фігурами</p>
+            `;
+        }
+        
+        // Додаємо обробники подій
+        setTimeout(() => {
+            const aiMoveBtn = document.getElementById('chess-ai-move');
+            const resetBtn = document.getElementById('chess-reset');
+            const closeBtn = document.getElementById('chess-close');
+            
+            if (aiMoveBtn) aiMoveBtn.addEventListener('click', () => this.makeChessAIMove());
+            if (resetBtn) resetBtn.addEventListener('click', () => this.resetChess());
+            if (closeBtn) closeBtn.addEventListener('click', () => this.closeGame());
+        }, 100);
+        
+        const firstMoveMsg = this.chessGame.turn === this.chessGame.playerColor 
+            ? 'Ти ходиш першим!' 
+            : 'AI ходить першим!';
+        this.showToast(firstMoveMsg + ' Всі правила шахів діють!', '♟️');
+        
+        // Якщо AI ходить першим
+        if (this.chessGame.turn === this.chessGame.aiColor) {
+            setTimeout(() => this.makeChessAIMove(), 1500);
+        }
+    }
+    
+    initChessBoard() {
+        this.chessGame = new ChessGame();
+        this.renderChessBoard();
+    }
+    
+    renderChessBoard() {
+        const board = document.getElementById('chess-board');
+        if (!board) return;
+        
+        board.innerHTML = '';
+        
+        for (let row = 0; row < 8; row++) {
+            for (let col = 0; col < 8; col++) {
+                const cell = document.createElement('div');
+                cell.className = 'chess-cell';
+                cell.dataset.row = row;
+                cell.dataset.col = col;
+                
+                if ((row + col) % 2 === 0) {
+                    cell.classList.add('light');
+                } else {
+                    cell.classList.add('dark');
+                }
+                
+                const piece = this.chessGame.board[row][col];
+                if (piece) {
+                    cell.textContent = piece;
+                    cell.classList.add('has-piece');
+                }
+                
+                if (this.chessGame.selected && 
+                    this.chessGame.selected.row === row && 
+                    this.chessGame.selected.col === col) {
+                    cell.classList.add('selected');
+                }
+                
+                cell.addEventListener('click', () => this.handleChessClick(row, col));
+                
+                board.appendChild(cell);
+            }
+        }
+    }
+    
+    handleChessClick(row, col) {
+        if (this.chessGame.turn !== this.chessGame.playerColor) {
+            this.showToast('Зараз хід AI!', '⏳');
+            return;
+        }
+        
+        const piece = this.chessGame.board[row][col];
+        
+        if (this.chessGame.selected) {
+            // Робимо хід
+            const fromRow = this.chessGame.selected.row;
+            const fromCol = this.chessGame.selected.col;
+            
+            const result = this.chessGame.makeMove(fromRow, fromCol, row, col);
+            
+            if (result === false) {
+                this.showToast('Неправильний хід!', '❌');
+                this.chessGame.selected = null;
+                this.renderChessBoard();
+            } else if (result.needsPromotion) {
+                // Показуємо вікно вибору фігури
+                this.showPromotionDialog(result.fromRow, result.fromCol, result.toRow, result.toCol);
+            } else {
+                this.chessGame.selected = null;
+                this.renderChessBoard();
+                
+                // Перевіряємо кінець гри
+                const gameStatus = this.chessGame.checkGameOver();
+                if (gameStatus.gameOver) {
+                    this.showGameOverDialog(gameStatus);
+                    return;
+                }
+                
+                this.showToast('Хід зроблено! Хід AI...', '✅');
+                
+                setTimeout(() => this.makeChessAIMove(), 1000);
+            }
+        } else if (piece && ((this.chessGame.playerColor === 'white' && this.chessGame.isWhitePiece(piece)) ||
+                             (this.chessGame.playerColor === 'black' && this.chessGame.isBlackPiece(piece)))) {
+            // Вибираємо фігуру
+            this.chessGame.selected = { row, col };
+            this.renderChessBoard();
+        }
+    }
+    
+    makeChessAIMove() {
+        if (this.chessGame.turn !== this.chessGame.aiColor) return;
+        
+        // Показуємо індикатор думання для складних рівнів
+        if (this.chessGame.difficulty >= 1000) {
+            this.showToast('AI думає...', '🤔');
+        }
+        
+        // Затримка для реалістичності (більше для складніших рівнів)
+        const thinkingTime = this.chessGame.difficulty === 2500 ? 2000 : 
+                            this.chessGame.difficulty === 1000 ? 1000 : 500;
+        
+        setTimeout(() => {
+            const result = this.chessGame.makeAIMove();
+            
+            if (result && result.gameOver) {
+                this.renderChessBoard();
+                setTimeout(() => this.showGameOverDialog(result), 500);
+                return;
+            }
+            
+            if (result) {
+                this.renderChessBoard();
+                this.showToast('AI зробив хід! Твоя черга', '🤖');
+                
+                if (this.chessGame.isKingInCheck(this.chessGame.playerColor)) {
+                    this.showToast('Шах!', '⚠️');
+                }
+            } else {
+                this.showToast('Помилка ходу AI', '❌');
+            }
+        }, thinkingTime);
+    }
+    
+    showGameOverDialog(gameStatus) {
+        const modal = document.createElement('div');
+        modal.className = 'game-over-modal';
+        
+        let title, message, emoji;
+        
+        if (gameStatus.reason === 'stalemate') {
+            title = '🤝 Нічия!';
+            message = 'Пат - немає можливих ходів, але король не під шахом';
+            emoji = '🤝';
+        } else if (gameStatus.winner === this.chessGame.playerColor) {
+            title = '🎉 Ти переміг!';
+            message = 'Вітаю! Ти поставив мат AI!';
+            emoji = '🏆';
+        } else {
+            title = '😔 Ти програв!';
+            message = 'AI поставив тобі мат. Спробуй ще раз!';
+            emoji = '💔';
+        }
+        
+        // Випадкова фігура для відображення
+        const pieces = gameStatus.winner === this.chessGame.playerColor 
+            ? (this.chessGame.playerColor === 'white' ? ['♔', '♕', '♖', '♗', '♘'] : ['♚', '♛', '♜', '♝', '♞'])
+            : (this.chessGame.aiColor === 'white' ? ['♔', '♕', '♖', '♗', '♘'] : ['♚', '♛', '♜', '♝', '♞']);
+        
+        const randomPiece = pieces[Math.floor(Math.random() * pieces.length)];
+        
+        modal.innerHTML = `
+            <div class="game-over-content">
+                <div class="game-over-piece">${randomPiece}</div>
+                <h2>${title}</h2>
+                <p>${message}</p>
+                <div class="game-over-buttons">
+                    <button class="game-over-btn primary" id="new-game-btn">🔄 Нова гра</button>
+                    <button class="game-over-btn secondary" id="close-game-btn">✕ Закрити</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+        
+        // Обробники кнопок
+        document.getElementById('new-game-btn').addEventListener('click', () => {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+                this.resetChess();
+            }, 300);
+        });
+        
+        document.getElementById('close-game-btn').addEventListener('click', () => {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+                this.closeGame();
+            }, 300);
+        });
+    }
+    
+    showPromotionDialog(fromRow, fromCol, toRow, toCol) {
+        // Створюємо модальне вікно
+        const modal = document.createElement('div');
+        modal.className = 'promotion-modal';
+        
+        // Вибираємо правильні фігури залежно від кольору гравця
+        const pieces = this.chessGame.playerColor === 'white' 
+            ? [
+                { piece: '♕', name: 'Ферзь' },
+                { piece: '♖', name: 'Тура' },
+                { piece: '♗', name: 'Слон' },
+                { piece: '♘', name: 'Кінь' }
+              ]
+            : [
+                { piece: '♛', name: 'Ферзь' },
+                { piece: '♜', name: 'Тура' },
+                { piece: '♝', name: 'Слон' },
+                { piece: '♞', name: 'Кінь' }
+              ];
+        
+        modal.innerHTML = `
+            <div class="promotion-content">
+                <h3>🎉 Перетворення пішака!</h3>
+                <p>Обери фігуру:</p>
+                <div class="promotion-choices">
+                    ${pieces.map(p => `
+                        <button class="promotion-btn" data-piece="${p.piece}">
+                            ${p.piece}<br>${p.name}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+        
+        // Обробники для кнопок
+        modal.querySelectorAll('.promotion-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const piece = btn.dataset.piece;
+                
+                // Завершуємо хід з перетворенням
+                this.chessGame.makeMove(fromRow, fromCol, toRow, toCol, piece);
+                this.chessGame.selected = null;
+                this.renderChessBoard();
+                
+                // Закриваємо модальне вікно
+                modal.classList.remove('show');
+                setTimeout(() => modal.remove(), 300);
+                
+                this.showToast(`Пішак перетворено на ${this.getPieceName(piece)}!`, '🎉');
+                
+                // Перевіряємо кінець гри
+                const gameStatus = this.chessGame.checkGameOver();
+                if (gameStatus.gameOver) {
+                    setTimeout(() => this.showGameOverDialog(gameStatus), 500);
+                    return;
+                }
+                
+                setTimeout(() => this.makeChessAIMove(), 1000);
+            });
+        });
+    }
+    
+    getPieceName(piece) {
+        const names = {
+            '♕': 'Ферзя', '♛': 'Ферзя',
+            '♖': 'Туру', '♜': 'Туру',
+            '♗': 'Слона', '♝': 'Слона',
+            '♘': 'Коня', '♞': 'Коня'
+        };
+        return names[piece] || 'фігуру';
+    }
+    
+    resetChess() {
+        this.initChessBoard();
+        this.showToast('Нова гра розпочата!', '🔄');
+    }
+    
+    startFool() {
+        // Створюємо повноекранну гру
+        const fullscreen = document.createElement('div');
+        fullscreen.className = 'game-fullscreen';
+        fullscreen.id = 'game-fullscreen';
+        fullscreen.innerHTML = `
+            <div class="game-fullscreen-content">
+                <div class="game-header">
+                    <h2>🃏 Дурень</h2>
+                    <button class="game-close-btn" id="fool-close">✕</button>
+                </div>
+                <div class="fool-game">
+                    <div class="fool-info">
+                        <p>🎴 Козир: <span id="trump-card">♥️ 7</span></p>
+                        <p>📚 Карт в колоді: <span id="deck-count">24</span></p>
+                        <p>🎯 Статус: <span id="game-status">Твій хід</span></p>
+                    </div>
+                    <div class="fool-table" id="fool-table">
+                        <p style="text-align: center; color: rgba(0, 255, 65, 0.5);">Стіл порожній</p>
+                    </div>
+                    <div class="fool-ai-hand">
+                        <p>🤖 Карти AI: <span id="ai-cards">6 карт</span></p>
+                    </div>
+                    <div class="fool-player-hand" id="player-hand"></div>
+                </div>
+                <div class="game-controls">
+                    <button class="game-btn" id="fool-take">📥 Взяти</button>
+                    <button class="game-btn" id="fool-pass">✅ Бито</button>
+                    <button class="game-btn" id="fool-reset">🔄 Нова гра</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(fullscreen);
+        setTimeout(() => fullscreen.classList.add('show'), 10);
+        
+        this.foolGame = new FoolGame();
+        this.renderFoolGame();
+        
+        // Додаємо обробники подій
+        setTimeout(() => {
+            const takeBtn = document.getElementById('fool-take');
+            const passBtn = document.getElementById('fool-pass');
+            const resetBtn = document.getElementById('fool-reset');
+            const closeBtn = document.getElementById('fool-close');
+            
+            if (takeBtn) takeBtn.addEventListener('click', () => this.foolTake());
+            if (passBtn) passBtn.addEventListener('click', () => this.foolPass());
+            if (resetBtn) resetBtn.addEventListener('click', () => this.resetFool());
+            if (closeBtn) closeBtn.addEventListener('click', () => this.closeGame());
+        }, 100);
+        
+        this.showToast('Ти ходиш першим. Всі правила дурня діють!', '🃏');
+    }
+    
+    initFoolGame() {
+        this.foolGame = new FoolGame();
+        this.renderFoolGame();
+    }
+    
+    renderFoolGame() {
+        console.log('renderFoolGame called:', {
+            turn: this.foolGame.turn,
+            attackingPlayer: this.foolGame.attackingPlayer,
+            tableLength: this.foolGame.table.length,
+            playerHandLength: this.foolGame.playerHand.length
+        });
+        
+        const playerHand = document.getElementById('player-hand');
+        if (!playerHand) return;
+        
+        playerHand.innerHTML = '<p style="margin-bottom: 1rem; text-align: center;"><strong>ТВОЇ КАРТИ:</strong></p>';
+        
+        const cardsContainer = document.createElement('div');
+        cardsContainer.className = 'cards-fan';
+        
+        this.foolGame.playerHand.forEach((card, index) => {
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'playing-card';
+            cardDiv.dataset.index = index;
+            
+            // Обчислюємо кут для віяла
+            const totalCards = this.foolGame.playerHand.length;
+            const maxAngle = 30; // Максимальний кут розкриття віяла
+            const angleStep = totalCards > 1 ? maxAngle / (totalCards - 1) : 0;
+            const angle = -maxAngle / 2 + angleStep * index;
+            
+            cardDiv.style.setProperty('--card-index', index);
+            cardDiv.style.setProperty('--card-angle', `${angle}deg`);
+            cardDiv.style.setProperty('--total-cards', totalCards);
+            
+            // Визначаємо колір масті
+            const suitColor = (card.suit === '♥' || card.suit === '♦') ? 'red' : 'black';
+            
+            cardDiv.innerHTML = `
+                <div class="card-inner">
+                    <div class="card-corner top-left">
+                        <div class="card-rank">${card.rank}</div>
+                        <div class="card-suit ${suitColor}">${card.suit}</div>
+                    </div>
+                    <div class="card-center ${suitColor}">${card.suit}</div>
+                    <div class="card-corner bottom-right">
+                        <div class="card-rank">${card.rank}</div>
+                        <div class="card-suit ${suitColor}">${card.suit}</div>
+                    </div>
+                </div>
+            `;
+            
+            // Додаємо обробник тільки якщо це хід гравця
+            if (this.foolGame.turn === 'player') {
+                cardDiv.classList.add('clickable');
+                cardDiv.addEventListener('click', () => this.playFoolCard(index));
+            } else {
+                cardDiv.classList.add('disabled');
+            }
+            
+            cardsContainer.appendChild(cardDiv);
+        });
+        
+        playerHand.appendChild(cardsContainer);
+        
+        const trumpCard = document.getElementById('trump-card');
+        const deckCount = document.getElementById('deck-count');
+        const aiCards = document.getElementById('ai-cards');
+        const gameStatus = document.getElementById('game-status');
+        
+        if (trumpCard) trumpCard.textContent = `${this.foolGame.trump.suit} ${this.foolGame.trump.rank}`;
+        if (deckCount) deckCount.textContent = this.foolGame.deck.length;
+        if (aiCards) aiCards.textContent = `${this.foolGame.aiHand.length} карт`;
+        
+        if (gameStatus) {
+            if (this.foolGame.turn === 'player') {
+                if (this.foolGame.attackingPlayer === 'player') {
+                    gameStatus.textContent = 'Ти атакуєш';
+                    gameStatus.style.color = '#00ff41';
+                } else {
+                    gameStatus.textContent = 'Ти відбиваєш';
+                    gameStatus.style.color = '#ffaa00';
+                }
+            } else {
+                gameStatus.textContent = 'Хід AI...';
+                gameStatus.style.color = '#ff4444';
+            }
+        }
+        
+        const table = document.getElementById('fool-table');
+        if (table) {
+            if (this.foolGame.table.length === 0) {
+                table.innerHTML = '<p style="text-align: center; color: rgba(0, 255, 65, 0.5); font-size: 1.2rem;">Стіл порожній</p>';
+            } else {
+                table.innerHTML = '<div class="table-cards"></div>';
+                const tableCards = table.querySelector('.table-cards');
+                
+                this.foolGame.table.forEach((pair, index) => {
+                    const pairDiv = document.createElement('div');
+                    pairDiv.className = 'card-pair';
+                    
+                    // Атакуюча карта
+                    const attackCard = this.createTableCard(pair.attack, 'attack');
+                    pairDiv.appendChild(attackCard);
+                    
+                    // Захисна карта або місце для неї
+                    if (pair.defend) {
+                        const defendCard = this.createTableCard(pair.defend, 'defend');
+                        pairDiv.appendChild(defendCard);
+                    } else if (this.foolGame.attackingPlayer === 'ai' && this.foolGame.turn === 'player') {
+                        const emptySlot = document.createElement('div');
+                        emptySlot.className = 'card-slot';
+                        emptySlot.textContent = '?';
+                        emptySlot.addEventListener('click', () => this.defendFoolCard(index));
+                        pairDiv.appendChild(emptySlot);
+                    }
+                    
+                    tableCards.appendChild(pairDiv);
+                });
+            }
+        }
+        
+        // Перевірка на перемогу
+        const winner = this.foolGame.checkWinner();
+        if (winner === 'player') {
+            setTimeout(() => this.showFoolGameOver('win'), 500);
+        } else if (winner === 'ai') {
+            setTimeout(() => this.showFoolGameOver('lose'), 500);
+        }
+    }
+    
+    createTableCard(card, type) {
+        const cardDiv = document.createElement('div');
+        cardDiv.className = `playing-card table-card ${type}`;
+        
+        const suitColor = (card.suit === '♥' || card.suit === '♦') ? 'red' : 'black';
+        
+        cardDiv.innerHTML = `
+            <div class="card-inner">
+                <div class="card-corner top-left">
+                    <div class="card-rank">${card.rank}</div>
+                    <div class="card-suit ${suitColor}">${card.suit}</div>
+                </div>
+                <div class="card-center ${suitColor}">${card.suit}</div>
+                <div class="card-corner bottom-right">
+                    <div class="card-rank">${card.rank}</div>
+                    <div class="card-suit ${suitColor}">${card.suit}</div>
+                </div>
+            </div>
+        `;
+        
+        return cardDiv;
+    }
+    
+    showFoolGameOver(result) {
+        const modal = document.createElement('div');
+        modal.className = 'game-over-modal';
+        
+        let title, message, cardSuit;
+        
+        if (result === 'win') {
+            title = '🎉 Ти переміг!';
+            message = 'Вітаю! Ти позбувся всіх карт!';
+            cardSuit = this.foolGame.trump.suit;
+        } else {
+            title = '😔 Ти програв!';
+            message = 'AI позбувся карт першим. Спробуй ще раз!';
+            cardSuit = this.foolGame.trump.suit;
+        }
+        
+        modal.innerHTML = `
+            <div class="game-over-content">
+                <div class="game-over-piece" style="font-size: 10rem;">${cardSuit}</div>
+                <h2>${title}</h2>
+                <p>${message}</p>
+                <div class="game-over-buttons">
+                    <button class="game-over-btn primary" id="new-fool-game-btn">🔄 Нова гра</button>
+                    <button class="game-over-btn secondary" id="close-fool-game-btn">✕ Закрити</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        setTimeout(() => modal.classList.add('show'), 10);
+        
+        document.getElementById('new-fool-game-btn').addEventListener('click', () => {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+                this.resetFool();
+            }, 300);
+        });
+        
+        document.getElementById('close-fool-game-btn').addEventListener('click', () => {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+                this.closeGame();
+            }, 300);
+        });
+    }
+    
+    playFoolCard(index) {
+        if (this.foolGame.attackingPlayer === 'player') {
+            const result = this.foolGame.playerAttack(index);
+            this.showToast(result.message, result.success ? '✅' : '❌');
+            this.renderFoolGame();
+            
+            if (result.success) {
+                setTimeout(() => this.foolAITurn(), 1000);
+            }
+        }
+    }
+    
+    defendFoolCard(tableIndex) {
+        console.log('defendFoolCard called:', {
+            tableIndex,
+            turn: this.foolGame.turn,
+            attackingPlayer: this.foolGame.attackingPlayer
+        });
+        
+        if (this.foolGame.attackingPlayer === 'ai' && this.foolGame.turn === 'player') {
+            // Показуємо підказку - клікни на свою карту
+            this.showToast('Клікни на свою карту для відбиття', '👆');
+            
+            // Зберігаємо індекс карти на столі для відбиття
+            this.defendingCardIndex = tableIndex;
+            console.log('Set defendingCardIndex to:', tableIndex);
+            
+            // Підсвічуємо карти, якими можна відбити
+            const attackCard = this.foolGame.table[tableIndex].attack;
+            console.log('Attack card:', attackCard);
+            
+            this.foolGame.playerHand.forEach((card, index) => {
+                const canDefend = this.foolGame.canDefend(attackCard, card);
+                console.log(`Card ${index} (${card.suit}${card.rank}) can defend:`, canDefend);
+                
+                if (canDefend) {
+                    const cardEl = document.querySelector(`.playing-card[data-index="${index}"]`);
+                    if (cardEl) {
+                        cardEl.classList.add('can-defend');
+                        console.log('Added can-defend class to card', index);
+                    }
+                }
+            });
+        }
+    }
+    
+    playFoolCard(index) {
+        console.log('playFoolCard called:', {
+            index,
+            turn: this.foolGame.turn,
+            attackingPlayer: this.foolGame.attackingPlayer,
+            defendingCardIndex: this.defendingCardIndex
+        });
+        
+        // Перевіряємо, чи це хід гравця
+        if (this.foolGame.turn !== 'player') {
+            this.showToast('Зараз хід AI!', '⏳');
+            return;
+        }
+        
+        // Якщо ми в режимі відбиття
+        if (this.defendingCardIndex !== undefined) {
+            console.log('Defending with card:', index, 'against table card:', this.defendingCardIndex);
+            const result = this.foolGame.playerDefend(index, this.defendingCardIndex);
+            console.log('Defend result:', result);
+            this.showToast(result.message, result.success ? '✅' : '❌');
+            this.defendingCardIndex = undefined;
+            this.renderFoolGame();
+            
+            if (result.success) {
+                setTimeout(() => this.foolAITurn(), 1000);
+            }
+            return;
+        }
+        
+        // Інакше атакуємо
+        if (this.foolGame.attackingPlayer === 'player') {
+            console.log('Attacking with card:', index);
+            const result = this.foolGame.playerAttack(index);
+            console.log('Attack result:', result);
+            this.showToast(result.message, result.success ? '✅' : '❌');
+            this.renderFoolGame();
+            
+            if (result.success) {
+                setTimeout(() => this.foolAITurn(), 1000);
+            }
+        } else {
+            this.showToast('Зараз ти маєш відбивати, а не атакувати!', '⚠️');
+        }
+    }
+    
+    foolAITurn() {
+        const result = this.foolGame.aiTurn();
+        if (result) {
+            this.showToast(result.message, '🤖');
+            this.renderFoolGame();
+            
+            if (result.action === 'attack' || result.action === 'defend') {
+                // AI може продовжити
+                if (this.foolGame.turn === 'ai') {
+                    setTimeout(() => this.foolAITurn(), 1000);
+                }
+            }
+        }
+    }
+    
+    foolTake() {
+        const result = this.foolGame.playerTake();
+        this.showToast(result.message, result.success ? '📥' : '❌');
+        this.renderFoolGame();
+        
+        if (result.success) {
+            setTimeout(() => this.foolAITurn(), 1000);
+        }
+    }
+    
+    foolPass() {
+        const result = this.foolGame.playerPass();
+        this.showToast(result.message, result.success ? '✅' : '❌');
+        this.renderFoolGame();
+        
+        if (result.success) {
+            setTimeout(() => this.foolAITurn(), 1000);
+        }
+    }
+    
+    resetFool() {
+        this.initFoolGame();
+        this.showToast('Нова гра розпочата!', '🔄');
+    }    
+    closeGame() {
+        const fullscreen = document.getElementById('game-fullscreen');
+        if (fullscreen) {
+            fullscreen.classList.remove('show');
+            setTimeout(() => fullscreen.remove(), 300);
+        }
+        this.showToast('Гру завершено!', '👋');
+    }
+}
+
+// Глобальна змінна для доступу
+let aiAssistant;
+
+// Initialize app
+document.addEventListener('DOMContentLoaded', () => {
+    aiAssistant = new AIAssistantUI();
+    initMatrixRain();
+});
+
+// Matrix rain effect
+function initMatrixRain() {
+    const canvas = document.getElementById('matrix-canvas');
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()';
+    const fontSize = 14;
+    const columns = canvas.width / fontSize;
+    const drops = [];
+    
+    for (let i = 0; i < columns; i++) {
+        drops[i] = Math.random() * -100;
+    }
+    
+    function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#00ff41';
+        ctx.font = fontSize + 'px monospace';
+        
+        for (let i = 0; i < drops.length; i++) {
+            const text = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                drops[i] = 0;
+            }
+            
+            drops[i]++;
+        }
+    }
+    
+    setInterval(draw, 35);
+    
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+}

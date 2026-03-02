@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест кнопок</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #0a0e27;
+            color: white;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #8b5cf6;
+            border: none;
+            border-radius: 8px;
+            color: white;
+        }
+        button:hover {
+            background: #7c3aed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1a1f3a;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Тест кнопок</h1>
+    
+    <div>
+        <button id="test-btn-1" onclick="testButton1()">Тест 1: Простий клік</button>
+        <button id="test-btn-2" onclick="testButton2()">Тест 2: Fetch запит</button>
+        <button id="test-btn-3">Тест 3: addEventListener</button>
+    </div>
+    
+    <div class="result" id="result">
+        Результати з'являться тут...
+    </div>
+    
+    <script>
+        const resultDiv = document.getElementById('result');
+        
+        function log(message) {
+            console.log(message);
+            resultDiv.innerHTML += `<div>${message}</div>`;
+        }
+        
+        function testButton1() {
+            log('✅ Тест 1 пройдено: onclick працює!');
+        }
+        
+        async function testButton2() {
+            log('🔄 Тест 2: Відправка запиту...');
+            try {
+                const response = await fetch('/groq-status');
+                const data = await response.json();
+                log('✅ Тест 2 пройдено: Fetch працює! Статус: ' + JSON.stringify(data));
+            } catch (error) {
+                log('❌ Тест 2 провалено: ' + error.message);
+            }
+        }
+        
+        // Тест 3: addEventListener
+        document.getElementById('test-btn-3').addEventListener('click', function() {
+            log('✅ Тест 3 пройдено: addEventListener працює!');
+        });
+        
+        log('🚀 Сторінка завантажена. Натисни кнопки для тестування.');
+    </script>
+</body>
+</html>

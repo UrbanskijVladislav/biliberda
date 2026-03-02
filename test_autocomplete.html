@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест автодоповнення</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0a0e27;
+            color: white;
+            padding: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+        
+        .input-container {
+            position: relative; /* ВАЖЛИВО! */
+            background: #1a1f3a;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 12px;
+            padding: 12px 16px;
+        }
+        
+        input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+        
+        .autocomplete-suggestions {
+            position: absolute;
+            bottom: calc(100% + 8px); /* НАД полем вводу */
+            left: 0;
+            right: 0;
+            background: #1a1f3a;
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            border-radius: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 -4px 20px rgba(139, 92, 246, 0.2);
+        }
+        
+        .autocomplete-suggestions.show {
+            display: block;
+        }
+        
+        .autocomplete-item {
+            padding: 12px 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid rgba(139, 92, 246, 0.1);
+        }
+        
+        .autocomplete-item:hover,
+        .autocomplete-item.active {
+            background: rgba(139, 92, 246, 0.2);
+        }
+        
+        .autocomplete-command {
+            font-weight: 600;
+            color: #8b5cf6;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .autocomplete-desc {
+            font-size: 0.85rem;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .info {
+            margin-top: 20px;
+            padding: 16px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 8px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Тест автодоповнення</h1>
+        <p>Введіть <code>/</code> щоб побачити меню команд НАД полем вводу</p>
+        
+        <div class="input-container">
+            <div class="autocomplete-suggestions" id="suggestions">
+                <div class="autocomplete-item active">
+                    <span class="autocomplete-command">/help</span>
+                    <span class="autocomplete-desc">Показати всі команди</span>
+                </div>
+                <div class="autocomplete-item">
+                    <span class="autocomplete-command">/weather</span>
+                    <span class="autocomplete-desc">Погода</span>
+                </div>
+                <div class="autocomplete-item">
+                    <span class="autocomplete-command">/calc</span>
+                    <span class="autocomplete-desc">Калькулятор</span>
+                </div>
+                <div class="autocomplete-item">
+                    <span class="autocomplete-command">/joke</span>
+                    <span class="autocomplete-desc">Розказати жарт</span>
+                </div>
+            </div>
+            <input type="text" id="input" placeholder="Введіть / для команд...">
+        </div>
+        
+        <div class="info">
+            <strong>✅ Правильно:</strong> Меню з'являється НАД полем вводу<br>
+            <strong>📍 Ключові CSS властивості:</strong><br>
+            • <code>.input-container { position: relative; }</code><br>
+            • <code>.autocomplete-suggestions { position: absolute; bottom: calc(100% + 8px); }</code>
+        </div>
+    </div>
+    
+    <script>
+        const input = document.getElementById('input');
+        const suggestions = document.getElementById('suggestions');
+        
+        input.addEventListener('input', (e) => {
+            if (e.target.value.startsWith('/')) {
+                suggestions.classList.add('show');
+            } else {
+                suggestions.classList.remove('show');
+            }
+        });
+        
+        document.addEventListener('click', (e) => {
+            if (!input.contains(e.target) && !suggestions.contains(e.target)) {
+                suggestions.classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>

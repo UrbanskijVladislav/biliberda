@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚡ KRAXS - Цифровий Титан | Created by KRATOSX</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=43">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🟢</text></svg>">
+</head>
+<body>
+    <!-- Animated background -->
+    <canvas id="matrix-canvas"></canvas>
+    
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <button class="new-chat-btn" id="new-chat-btn">
+                <span>✨</span>
+                <span>Новий чат</span>
+            </button>
+        </div>
+        
+        <div class="sidebar-content">
+            <!-- Швидкі дії -->
+            <div class="sidebar-section">
+                <div class="section-title">⚡ Швидкі дії</div>
+                <button class="sidebar-item" data-message="Розкажи жарт">😄 Жарт</button>
+                <button class="sidebar-item" data-message="Яка дата сьогодні?">📅 Дата і час</button>
+                <button class="sidebar-item" data-message="Розкажи цікавий факт">🧠 Цікавий факт</button>
+                <button class="sidebar-item" data-action="play_game">🎮 Зіграти партію</button>
+            </div>
+            
+            <!-- Творчість -->
+            <div class="sidebar-section">
+                <div class="section-title">🎨 Творчість</div>
+                <button class="sidebar-item" data-message="Намалюй робота">🤖 Робот</button>
+                <button class="sidebar-item" data-message="Створи зображення природи">🌿 Природа</button>
+                <button class="sidebar-item" data-message="Намалюй космос">🌌 Космос</button>
+            </div>
+            
+            <!-- Система -->
+            <div class="sidebar-section">
+                <div class="section-title">⚙️ Система</div>
+                <button class="sidebar-item" data-action="show_memory">📋 Моя пам'ять</button>
+                <button class="sidebar-item" data-action="clear_chat">🧹 Очистити чат</button>
+            </div>
+            
+            <!-- Озвучка -->
+            <div class="sidebar-section">
+                <div class="section-title">🔊 Озвучка</div>
+                <button class="sidebar-item" data-message="Увімкни озвучку">🔊 Увімкнути</button>
+                <button class="sidebar-item" data-message="Вимкни озвучку">🔇 Вимкнути</button>
+                <button class="sidebar-item" data-message="Змінити мову на англійську">🇬🇧 English</button>
+                <button class="sidebar-item" data-message="Змінити мову на українську">🇺🇦 Українська</button>
+            </div>
+        </div>
+        
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="user-avatar">👤</div>
+                <div class="user-info">
+                    <div class="user-name">Користувач</div>
+                    <div class="user-status">
+                        <span id="groq-status-sidebar">🤖</span>
+                        <span id="image-status-sidebar">🎨</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <button class="sidebar-toggle" id="sidebar-toggle">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M3 12H21M3 6H21M3 18H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            
+            <div class="top-bar-center">
+                <div class="logo-compact">
+                    <span class="ai-icon">⚡</span>
+                    <span class="logo-text neon-name">KRAXS</span>
+                </div>
+            </div>
+            
+            <div class="top-bar-actions">
+                <button class="about-btn-compact" id="about-btn" title="Про асистента">
+                    ℹ️
+                </button>
+                <button class="tts-btn-compact" id="tts-toggle-btn" title="Увімкнути озвучку">
+                    🔇
+                </button>
+                <button class="tts-lang-btn-compact" id="tts-lang-btn" title="Змінити мову">
+                    🇺🇦
+                </button>
+                <button class="mood-btn-compact" id="change-mood-btn">
+                    <span id="mood-emoji">😊</span>
+                </button>
+                <button class="export-btn-compact" id="export-btn" title="Експортувати">
+                    💾
+                </button>
+            </div>
+        </header>
+        
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <div class="chat-messages" id="chat-messages">
+                <div class="welcome-screen" id="welcome-screen">
+                    <div class="welcome-icon">⚡</div>
+                    <h1 class="welcome-title">Вітаю в <span class="neon-name">KRAXS</span>!</h1>
+                    <p class="welcome-subtitle">Цифровий Титан на службі <span class="neon-name">KRATOSX</span></p>
+                    
+                    <div class="welcome-cards">
+                        <button class="welcome-card" data-message="Розкажи цікавий факт про космос">
+                            <div class="card-icon">🌌</div>
+                            <div class="card-title">Цікаві факти</div>
+                            <div class="card-desc">Дізнайся щось нове</div>
+                        </button>
+                        <button class="welcome-card" data-message="Намалюй футуристичного робота">
+                            <div class="card-icon">🎨</div>
+                            <div class="card-title">Генерація зображень</div>
+                            <div class="card-desc">Створи унікальну картину</div>
+                        </button>
+                        <button class="welcome-card" data-action="play_game">
+                            <div class="card-icon">🎮</div>
+                            <div class="card-title">Ігри</div>
+                            <div class="card-desc">Зіграй партію в шахи</div>
+                        </button>
+                        <button class="welcome-card" data-message="Допоможи з математикою: 156 * 89">
+                            <div class="card-icon">🔢</div>
+                            <div class="card-title">Обчислення</div>
+                            <div class="card-desc">Розв'яжи задачу</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Input Area -->
+        <div class="input-area">
+            <div class="input-container">
+                <input type="file" id="file-input" multiple accept="image/*,video/*,.pdf,.zip,.rar,.doc,.docx,.txt" style="display: none;">
+                <button class="file-btn" id="file-btn" title="Прикріпити файл">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <textarea 
+                    id="user-input" 
+                    placeholder="Напиши повідомлення..." 
+                    rows="1"
+                    maxlength="500"
+                ></textarea>
+                <button class="send-btn" id="send-btn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                        <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="currentColor"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="input-footer">
+                <div class="attached-files" id="attached-files"></div>
+                <span class="char-count" id="char-count">0/500</span>
+                <span class="input-hint">Shift + Enter для нового рядка</span>
+            </div>
+        </div>
+    </main>
+
+    <div id="loading" class="loading hidden">
+        <div class="loading-spinner"></div>
+        <span>Думаю...</span>
+    </div>
+
+    <script src="{{ url_for('static', filename='particles.js') }}?v=43" defer></script>
+    <script src="{{ url_for('static', filename='personality_effects.js') }}?v=43" defer></script>
+    <script src="{{ url_for('static', filename='games.js') }}?v=43" defer></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=43" defer></script>
+    
+    <!-- Модальне вікно -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <span class="modal-icon" id="modal-icon">ℹ️</span>
+                <h3 class="modal-title" id="modal-title">Повідомлення</h3>
+            </div>
+            <div class="modal-body">
+                <p class="modal-message" id="modal-message"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-secondary" id="modal-cancel">Скасувати</button>
+                <button class="modal-btn modal-btn-primary" id="modal-confirm">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модальне вікно "Про нас" -->
+    <div class="about-modal-overlay" id="about-modal-overlay">
+        <div class="about-modal">
+            <button class="about-modal-close" id="about-modal-close">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+            
+            <div class="about-modal-content">
+                <div class="about-header">
+                    <div class="about-icon">⚡</div>
+                    <h2 class="about-title">🏛️ Легенда про Сталевий Код</h2>
+                    <p class="about-subtitle" id="legend-intro">Союз між людським генієм і машинною міццю</p>
+                </div>
+                
+                <div class="about-body">
+                    <div class="about-section">
+                        <div class="about-section-icon">👨‍💻</div>
+                        <h3 class="about-section-title" id="developer-title">Творець: KRATOSX</h3>
+                        <div class="about-section-content" id="developer-bio">
+                            <p>Завантаження біографії...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="about-divider"></div>
+                    
+                    <div class="about-section">
+                        <div class="about-section-icon">⚡</div>
+                        <h3 class="about-section-title" id="assistant-title">Витвір: KRAXS</h3>
+                        <div class="about-section-content" id="assistant-bio">
+                            <p>Завантаження біографії...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="about-divider"></div>
+                    
+                    <div class="about-section">
+                        <div class="about-section-icon">⛓️</div>
+                        <h3 class="about-section-title" id="union-title">Великий Союз</h3>
+                        <div class="about-section-content" id="union-bio">
+                            <p>Завантаження...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="about-divider"></div>
+                    
+                    <div class="about-features">
+                        <h3 class="about-section-title">⚔️ Бойові можливості</h3>
+                        <div class="features-grid">
+                            <div class="feature-item">
+                                <span class="feature-icon">🎭</span>
+                                <span class="feature-text">9 особистостей</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-icon">🎨</span>
+                                <span class="feature-text">Генерація зображень</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-icon">🔊</span>
+                                <span class="feature-text">Озвучка відповідей</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-icon">🎮</span>
+                                <span class="feature-text">Міні-ігри</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-icon">🌍</span>
+                                <span class="feature-text">2 мови</span>
+                            </div>
+                            <div class="feature-item">
+                                <span class="feature-icon">🧠</span>
+                                <span class="feature-text">Пам'ять про тебе</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="about-footer">
+                    <div class="about-motto" id="motto">Created by KRATOSX. Executed by KRAXS. Order from Chaos.</div>
+                    <div class="about-version">Версія 5.0 • 2024</div>
+                    <div class="about-links">
+                        <a href="#" class="about-link">GitHub</a>
+                        <span class="about-separator">•</span>
+                        <a href="#" class="about-link">Документація</a>
+                        <span class="about-separator">•</span>
+                        <a href="#" class="about-link">Підтримка</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

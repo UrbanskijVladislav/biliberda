@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Тест синтаксису</title>
+</head>
+<body>
+    <h1>Тест JavaScript</h1>
+    <button id="test-btn">Тест</button>
+    <div id="output"></div>
+    
+    <script>
+        console.log('Скрипт завантажено');
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM готовий');
+            
+            const btn = document.getElementById('test-btn');
+            const output = document.getElementById('output');
+            
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    console.log('Клік!');
+                    output.textContent = 'Кнопка працює! ✅';
+                });
+                console.log('Обробник додано');
+            }
+        });
+    </script>
+</body>
+</html>
